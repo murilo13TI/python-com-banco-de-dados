@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request, flash, url_for, redirect
 import fdb
+from flask_bcrypt import bcrypt
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'a'
+app.config['SECRET_KEY'] = 'asdfghjhghfdxzfghjkjyjtrtersazxfgjhkjthrsdzxc'
 
 
 host = 'localhost'
@@ -55,7 +56,7 @@ def criar():
 
 @app.route('/atualizar')
 def atualizar():
-    return render_template('editar.html', livro_nome='editar livro')
+    return render_template('editar.html', titulo='editar livro')
 
 @app.route('/editar/<int:id>', methods=['GET', 'POST'])
 def editar(id):
@@ -86,6 +87,111 @@ def editar(id):
 
     cursor.close()  # Fecha o cursor ao final da função, se não for uma requisição POST
     return render_template('editar.html', livro=livro, titulo='Editar Livro')  # Renderiza a página de edição
+
+@app.route('/deletar/<int:id>', methods=('POST',))
+def deletar(id):
+    cursor = con.cursor()  # Abre o cursor
+
+    try:
+        cursor.execute('DELETE FROM livros WHERE id_livro = ?', (id,))
+        con.commit()  # Salva as alterações no banco de dados
+        flash('Livro excluído com sucesso!', 'success')  # Mensagem de sucesso
+    except Exception as e:
+        con.rollback()  # Reverte as alterações em caso de erro
+        flash('Erro ao excluir o livro.', 'error')  # Mensagem de erro
+    finally:
+        cursor.close()  # Fecha o cursor independentemente do resultado
+
+    return redirect(url_for('index'))  # Redireciona para a página principal
+
+@app.route('/cadastro_usuario')
+def cadastro_usuario():
+    return render_template('cadastro_usuario.html')
+
+@app.route('/usuario')
+def usuario():
+    cursor = con.cursor()
+    cursor.execute('SELECT id_usuario, nome_usuario, email, senha from usuario')
+    usuario = cursor.fetchall()
+    cursor.close()
+
+    return render_template('usuario.html', usuario=usuario)
+
+@app.route('/cadastrar', methods=['POST'])
+def cadastrar():
+    nome_usuario = request.form['Nome']
+    email = request.form['Email']
+    senha = request.form['Senha']
+
+    cursor = con.cursor()
+    try:
+        cursor.execute('SELECT 1 FROM usuario WHERE  email = ?', (email,))
+        if cursor.fetchone():
+            flash('Erro: usuario ja cadastrado', 'error')
+            return redirect(url_for('cadastrar'))
+
+        cursor.execute("INSERT INTO usuario (nome_usuario, email, senha) VALUES (?, ?, ?)",
+                       (nome_usuario, email, senha))
+        con.commit()
+
+    finally:
+    # Fechar o cursor manualmente, mesmo que haja erro
+        cursor.close()
+
+    flash("Livro cadastrado com sucesso!", "success")
+    return redirect(url_for('index'))
+
+
+@app.route('/editar_usuario/<int:id>', methods=['GET', 'POST'])
+def editar_usuario(id):
+    cursor = con.cursor()
+
+    cursor.execute('SELECT 1 FROM usuario WHERE id_usuario = ?', (id,))
+    usuario = cursor.fetchone()
+
+    if not usuario:
+        cursor.close()
+        flash('usuário não encontrado', 'error')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        nome_usuario = request.form['Nome']
+        email = request.form['Email']
+        senha = request.form['Senha']
+
+        cursor.execute('UPDATE usuario SET nome_usuario = ? , email = ?, senha = ?', (nome_usuario, email, senha,))
+        con.commit()
+        flash("usuario atualizado com sucesso!", "success")
+        return redirect(url_for('index'))
+
+@app.route('/deletar_usuario/<int:id>', methods=['POST'])
+def deletar_usuario(id):
+    cursor = con.cursor()
+
+    try:
+        cursor.execute("DELETE FROM USUARIO WHERE id_usuario = ?" , (id,))
+        con.commit()
+        flash("o usuario foi deletado com sucesso! ",  'sucess')
+    except Exception as e:
+        con.rollback()
+        flash("erro ao excluir usuario", 'error')
+    finally:
+        cursor.close()
+
+    return redirect(url_for('index'))
+
+@app.route('/login/<int:id>', methods=['POST'])
+def login():
+    cursor = con.cursor()
+
+    senha_cripto = bcrypt.generate_password_hash(senha).decode('utf-8')
+    if bcrypt.check_password_hash(senha_hash, senha)
+        flash('login executado com sucesso', 'sucess')
+    else:
+        flash('erro login não executado', 'error')
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
